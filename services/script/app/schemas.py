@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -51,6 +52,9 @@ class ScriptSchema(BaseModel):
 
     # TODO M1 (task K1): declare id (UUID), batch_id (UUID), candidate_number (str).
     # Until you do, this placeholder lets every stored field through, unchecked:
+    id: UUID = Field(default_factory=uuid.uuid4)
+    batch_id: UUID = Field(default_factory=uuid.uuid4)
+    candidate_number: str = Field(default="CN0000")
     model_config = ConfigDict(extra="allow")
 
 
