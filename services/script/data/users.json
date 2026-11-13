@@ -1,0 +1,38 @@
+[
+  {
+    "id": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "username": "officer.mbarga",
+    "role": "exams_officer",
+    "is_active": true
+  },
+  {
+    "id": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+    "username": "examiner.tchoua",
+    "role": "examiner",
+    "is_active": true
+  },
+  {
+    "id": "8b927080-46e5-5d85-a537-e615d2187201",
+    "username": "examiner.nguemo",
+    "role": "examiner",
+    "is_active": true
+  },
+  {
+    "id": "90f80b57-1dd3-51ec-8f90-b3f15e28a5c5",
+    "username": "examiner.retired",
+    "role": "examiner",
+    "is_active": false
+  },
+  {
+    "id": "ad44afe2-4837-579b-b4e0-eac1231d118e",
+    "username": "moderator.fotso",
+    "role": "moderator",
+    "is_active": true
+  },
+  {
+    "id": "5662bdb1-2cbb-52f9-8f82-8ddd45457dd7",
+    "username": "hod.ekani",
+    "role": "hod",
+    "is_active": true
+  }
+]

@@ -1,0 +1,476 @@
+openapi: 3.0.3
+
+info:
+  title: ScriptChain Script Service
+  description: >
+    The Script Service owns the physical custody of exam scripts: batches of scripts
+    (one batch per course and exam session) and the custody transfers between people.
+    All data is synthetic (fictional courses and candidate numbers).
+    Version 1.0 is the target of the Lab 2 work (in-memory implementation, JWT checked locally).
+    Every error answers {"detail": ...} (one consistent error schema).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001
+    description: local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /v1/batches:
+    get:
+      summary: Lists batches
+      operationId: getBatches
+      description: >
+        Returns the batches, most recent first (created_at descending).
+        Supports a filter on the course and limit/offset pagination. Any logged-in role.
+      parameters:
+        - name: course_code
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Z]{3}[0-9]{3}$'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: An object holding the list of batches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchesSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      summary: Creates a batch of scripts
+      operationId: createBatch
+      description: >
+        Only the exams_officer. The scripts of the batch are created from the candidate numbers;
+        script_count is their number. The officer who creates the batch is its first custodian.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchSchema'
+            example:
+              course_code: CSC201
+              session_label: 2026 Semester 1 exam
+              candidate_numbers: [CN1001, CN1002, CN1003]
+      responses:
+        '201':
+          description: The created batch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/batches/{batch_id}:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    get:
+      summary: Reads one batch
+      operationId: getBatch
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/batches/{batch_id}/scripts:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    get:
+      summary: Lists the scripts of a batch
+      operationId: getScripts
+      description: Ordered by candidate_number (ascending), limit/offset pagination.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: An object holding the list of scripts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScriptsSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/batches/{batch_id}/transfers:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    get:
+      summary: Reads the custody history of a batch
+      operationId: getTransfers
+      description: All the transfers of the batch, oldest first (requested_at ascending).
+      responses:
+        '200':
+          description: An object holding the list of transfers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransfersSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      summary: Starts a handover of the batch
+      operationId: startTransfer
+      description: >
+        Roles exams_officer and examiner, and the caller must be the CURRENT custodian (409 otherwise).
+        The receiver must exist, be active and be an examiner (422 otherwise; 503 when the Auth
+        service cannot be reached: the service fails closed). A batch has at most one pending
+        transfer (409). The transfer stays "pending" until the receiver accepts it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferSchema'
+            example:
+              to_user_id: 1cae8d57-c5ce-5ba5-b412-663cfcce025e
+      responses:
+        '201':
+          description: The pending transfer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/batches/{batch_id}/custodian:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    get:
+      summary: Tells who holds the scripts of a batch now
+      operationId: getCustodian
+      description: The question the Mark Service asks before it accepts marks. Any valid token (the caller's token is forwarded).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustodianSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/transfers/{transfer_id}/accept:
+    parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Accepts a handover
+      operationId: acceptTransfer
+      description: >
+        Role examiner, and only the receiver named in the transfer (409 otherwise). A transfer that is
+        not pending any more cannot be accepted (409). On success the receiver becomes the custodian
+        of the batch (the history keeps the transfer: it is never edited otherwise).
+      responses:
+        '200':
+          description: The accepted transfer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BatchId:
+      name: batch_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  responses:
+    Unauthorized:
+      description: No token, or an invalid / expired token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: A valid token, but its role may not do this.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: The specified resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: The request is valid but the current state forbids it.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: The payload or a parameter contains invalid values.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: A service this one depends on cannot be reached (fail closed).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+      required:
+        - detail
+
+    CreateBatchSchema:
+      type: object
+      required:
+        - course_code
+        - session_label
+        - candidate_numbers
+      properties:
+        course_code:
+          type: string
+          pattern: '^[A-Z]{3}[0-9]{3}$'
+          description: Fictional course code, three capital letters and three digits (e.g. CSC201).
+        session_label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        candidate_numbers:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^CN[0-9]{4}$'
+          description: Synthetic candidate numbers; one script is created for each.
+
+    CreateTransferSchema:
+      type: object
+      required:
+        - to_user_id
+      properties:
+        to_user_id:
+          type: string
+          format: uuid
+          description: The user who will receive the scripts.
+
+    BatchSchema:
+      type: object
+      required:
+        - id
+        - course_code
+        - session_label
+        - script_count
+        - created_by
+        - current_custodian_id
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_code:
+          type: string
+        session_label:
+          type: string
+        script_count:
+          type: integer
+        created_by:
+          type: string
+          format: uuid
+        current_custodian_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    ScriptSchema:
+      type: object
+      required:
+        - id
+        - batch_id
+        - candidate_number
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        candidate_number:
+          type: string
+
+    TransferSchema:
+      type: object
+      required:
+        - id
+        - batch_id
+        - from_user_id
+        - to_user_id
+        - status
+        - requested_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        from_user_id:
+          type: string
+          format: uuid
+        to_user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - rejected
+        requested_at:
+          type: string
+          format: date-time
+        responded_at:
+          type: string
+          format: date-time
+          description: Absent while the transfer is pending.
+
+    CustodianSchema:
+      type: object
+      required:
+        - batch_id
+        - custodian_id
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        custodian_id:
+          type: string
+          format: uuid
+
+    BatchesSchema:
+      type: object
+      required:
+        - batches
+      properties:
+        batches:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchSchema'
+
+    ScriptsSchema:
+      type: object
+      required:
+        - scripts
+      properties:
+        scripts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScriptSchema'
+
+    TransfersSchema:
+      type: object
+      required:
+        - transfers
+      properties:
+        transfers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransferSchema'

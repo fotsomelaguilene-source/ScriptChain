@@ -1,0 +1,521 @@
+openapi: 3.0.3
+
+info:
+  title: ScriptChain Mark Service
+  description: >
+    The Mark Service owns the academic outcome: the marks entered for a batch of scripts, the
+    adjustments made by moderators (always with a reason) and the approval by the head of department.
+    Approved marks are locked. Only the current custodian of a batch (checked with the Script Service)
+    can enter its marks. All data is synthetic. Version 1.0 is the target of the Lab 2 work
+    (in-memory implementation, JWT checked locally). Every error answers {"detail": ...}.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8002
+    description: local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /v1/batches/{batch_id}/marks/bulk:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    post:
+      summary: Submits the marks of a batch
+      operationId: submitMarks
+      description: >
+        Role examiner, and the caller must be the current custodian of the batch (asked to the Script
+        Service with a short timeout; 409 otherwise; 404 when the Script Service does not know the batch;
+        503 when it cannot answer: the service fails closed and saves nothing). A mark that was already
+        entered is never overwritten (409). The batch must not be approved (409). The request is
+        IDEMPOTENT: the client sends an Idempotency-Key header; the same key with the same request returns
+        the first answer without saving twice; the same key with another request is refused (422).
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 100
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkMarksSchema'
+            example:
+              entries:
+                - candidate_number: CN1001
+                  score: 62.5
+                - candidate_number: CN1002
+                  score: 48
+      responses:
+        '201':
+          description: The marks that were saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResultSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/batches/{batch_id}/marks:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    get:
+      summary: Lists the marks of a batch
+      operationId: getMarks
+      description: Ordered by candidate_number (ascending), limit/offset pagination. 404 when no marks were submitted.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: An object holding the list of marks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarksSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/marks/{mark_id}:
+    parameters:
+      - $ref: '#/components/parameters/MarkId'
+    get:
+      summary: Reads one mark
+      operationId: getMark
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/marks/{mark_id}/adjustments:
+    parameters:
+      - $ref: '#/components/parameters/MarkId'
+    get:
+      summary: Reads the change history of a mark
+      operationId: getAdjustments
+      description: Oldest first (adjusted_at ascending).
+      responses:
+        '200':
+          description: An object holding the list of adjustments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentsSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      summary: Adjusts a mark
+      operationId: adjustMark
+      description: >
+        Role moderator. A reason is mandatory (not blank). original_score never changes; current_score does.
+        The first adjustment of a batch moves it from "entered" to "in_moderation". Marks of an approved
+        batch are locked (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentRequestSchema'
+            example:
+              new_score: 65
+              reason: Question 4 was marked twice by mistake
+      responses:
+        '201':
+          description: The recorded adjustment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/moderation/pending:
+    get:
+      summary: Lists the batches awaiting moderation
+      operationId: getPending
+      description: Roles moderator and hod. Every batch whose marks are not approved yet, newest first.
+      responses:
+        '200':
+          description: An object holding the list of batches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/batches/{batch_id}/approval:
+    parameters:
+      - $ref: '#/components/parameters/BatchId'
+    post:
+      summary: Approves and locks the marks of a batch
+      operationId: approveBatch
+      description: Role hod. 404 when no marks were submitted for the batch; 409 when it is already approved.
+      responses:
+        '201':
+          description: The approval record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    get:
+      summary: Reads the approval record of a batch
+      operationId: getApproval
+      description: 404 while the batch is not approved.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalSchema'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BatchId:
+      name: batch_id
+      in: path
+      required: true
+      description: The id of the batch in the Script Service.
+      schema:
+        type: string
+        format: uuid
+    MarkId:
+      name: mark_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  responses:
+    Unauthorized:
+      description: No token, or an invalid / expired token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: A valid token, but its role may not do this.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: The specified resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: The request is valid but the current state forbids it.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: The payload or a parameter contains invalid values.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: A service this one depends on cannot be reached (fail closed).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+      required:
+        - detail
+
+    MarkEntrySchema:
+      type: object
+      required:
+        - candidate_number
+        - score
+      properties:
+        candidate_number:
+          type: string
+          pattern: '^CN[0-9]{4}$'
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    BulkMarksSchema:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/MarkEntrySchema'
+          description: One entry per candidate; a candidate appears only once.
+
+    AdjustmentRequestSchema:
+      type: object
+      required:
+        - new_score
+        - reason
+      properties:
+        new_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Why the mark changes (mandatory; blank is refused).
+
+    MarkSchema:
+      type: object
+      required:
+        - id
+        - batch_id
+        - candidate_number
+        - original_score
+        - current_score
+        - entered_by
+        - custodian_id_at_entry
+        - entered_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        candidate_number:
+          type: string
+        original_score:
+          type: number
+        current_score:
+          type: number
+        entered_by:
+          type: string
+          format: uuid
+        custodian_id_at_entry:
+          type: string
+          format: uuid
+          description: Audit snapshot - who the Script Service said held the scripts when the mark was entered.
+        entered_at:
+          type: string
+          format: date-time
+
+    MarksSchema:
+      type: object
+      required:
+        - marks
+      properties:
+        marks:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarkSchema'
+
+    BulkResultSchema:
+      type: object
+      required:
+        - batch_id
+        - status
+        - marks
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - entered
+            - in_moderation
+            - approved
+        marks:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarkSchema'
+
+    AdjustmentSchema:
+      type: object
+      required:
+        - id
+        - mark_id
+        - old_score
+        - new_score
+        - reason
+        - adjusted_by
+        - adjusted_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        mark_id:
+          type: string
+          format: uuid
+        old_score:
+          type: number
+        new_score:
+          type: number
+        reason:
+          type: string
+        adjusted_by:
+          type: string
+          format: uuid
+        adjusted_at:
+          type: string
+          format: date-time
+
+    AdjustmentsSchema:
+      type: object
+      required:
+        - adjustments
+      properties:
+        adjustments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdjustmentSchema'
+
+    PendingBatchSchema:
+      type: object
+      required:
+        - batch_id
+        - status
+        - mark_count
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - entered
+            - in_moderation
+            - approved
+        mark_count:
+          type: integer
+
+    PendingSchema:
+      type: object
+      required:
+        - batches
+      properties:
+        batches:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingBatchSchema'
+
+    ApprovalSchema:
+      type: object
+      required:
+        - id
+        - batch_id
+        - approved_by
+        - approved_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        approved_by:
+          type: string
+          format: uuid
+        approved_at:
+          type: string
+          format: date-time

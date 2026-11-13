@@ -1,0 +1,102 @@
+[
+  {
+    "id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+    "course_code": "CSC201",
+    "session_label": "2026 Semester 1 exam",
+    "script_count": 4,
+    "created_by": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "current_custodian_id": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+    "created_at": "2026-10-20T08:00:00Z",
+    "scripts": [
+      {
+        "id": "4b86408a-8a60-51ce-859a-bcb6213e3a72",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1001"
+      },
+      {
+        "id": "524faec3-ee16-5c80-99a7-162f3525253f",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1002"
+      },
+      {
+        "id": "c4fcdb23-9cb2-574f-beb3-4873bc80eb22",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1003"
+      },
+      {
+        "id": "212b205a-ace9-5444-9e8c-d7abe0f7dd94",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1004"
+      }
+    ],
+    "transfers": [
+      {
+        "id": "aabadfdc-ed7b-557d-8740-86f3045ce1b6",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "from_user_id": "25da51b7-41b2-5975-87ac-2414e676c59d",
+        "to_user_id": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "status": "accepted",
+        "requested_at": "2026-10-20T08:30:00Z",
+        "responded_at": "2026-10-20T09:00:00Z"
+      }
+    ]
+  },
+  {
+    "id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+    "course_code": "MTH101",
+    "session_label": "2026 Semester 1 exam",
+    "script_count": 3,
+    "created_by": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "current_custodian_id": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "created_at": "2026-10-21T09:00:00Z",
+    "scripts": [
+      {
+        "id": "5e6f8f7f-17f7-5f43-acdc-96b42a78afea",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "candidate_number": "CN2001"
+      },
+      {
+        "id": "4f75eb40-81dd-5b75-b3cf-1bf3d3ebdde8",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "candidate_number": "CN2002"
+      },
+      {
+        "id": "d5481754-6d1d-518a-89c8-8dc6a5f79fcf",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "candidate_number": "CN2003"
+      }
+    ],
+    "transfers": [
+      {
+        "id": "fd5ed9d1-336b-5ecc-9422-2ece2d4e0ad9",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "from_user_id": "25da51b7-41b2-5975-87ac-2414e676c59d",
+        "to_user_id": "8b927080-46e5-5d85-a537-e615d2187201",
+        "status": "pending",
+        "requested_at": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "id": "65424a60-800e-5b94-9846-0040f14e804c",
+    "course_code": "NET301",
+    "session_label": "2026 Semester 1 exam",
+    "script_count": 2,
+    "created_by": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "current_custodian_id": "25da51b7-41b2-5975-87ac-2414e676c59d",
+    "created_at": "2026-10-22T07:30:00Z",
+    "scripts": [
+      {
+        "id": "24a416a6-ec01-570b-917b-1ddeb4842799",
+        "batch_id": "65424a60-800e-5b94-9846-0040f14e804c",
+        "candidate_number": "CN3001"
+      },
+      {
+        "id": "c38070d8-7777-59c1-a4bd-38ee065a79f1",
+        "batch_id": "65424a60-800e-5b94-9846-0040f14e804c",
+        "candidate_number": "CN3002"
+      }
+    ],
+    "transfers": []
+  }
+]

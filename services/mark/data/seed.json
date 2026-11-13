@@ -1,0 +1,131 @@
+[
+  {
+    "id": "a203d88a-1aa2-5fa7-b6da-7485839198c6",
+    "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+    "status": "entered",
+    "created_at": "2026-10-20T10:00:00Z",
+    "approval": null,
+    "marks": [
+      {
+        "id": "e7896ce7-cead-5c28-9157-6b17bcaa47df",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1001",
+        "original_score": 62.5,
+        "current_score": 62.5,
+        "entered_by": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "custodian_id_at_entry": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "entered_at": "2026-10-20T10:00:00Z",
+        "adjustments": []
+      },
+      {
+        "id": "32bb386b-34b1-5e68-82a0-ed1b8c06d6af",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1002",
+        "original_score": 48,
+        "current_score": 48,
+        "entered_by": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "custodian_id_at_entry": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "entered_at": "2026-10-20T10:00:00Z",
+        "adjustments": []
+      },
+      {
+        "id": "4bc7b600-e9a1-5ee6-a45a-94e19118793d",
+        "batch_id": "44639172-d92f-574d-9d2c-e2b301fa0195",
+        "candidate_number": "CN1003",
+        "original_score": 91,
+        "current_score": 91,
+        "entered_by": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "custodian_id_at_entry": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "entered_at": "2026-10-20T10:00:00Z",
+        "adjustments": []
+      }
+    ]
+  },
+  {
+    "id": "144040a6-75a1-5951-a9c8-a171f1c36f8b",
+    "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+    "status": "approved",
+    "created_at": "2026-10-21T12:00:00Z",
+    "approval": {
+      "id": "158b8d06-fa7f-50dc-a40d-4c2acf022a96",
+      "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+      "approved_by": "5662bdb1-2cbb-52f9-8f82-8ddd45457dd7",
+      "approved_at": "2026-10-23T15:00:00Z"
+    },
+    "marks": [
+      {
+        "id": "becce37c-dca8-5100-92fa-dd2c02425fdb",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "candidate_number": "CN2001",
+        "original_score": 65,
+        "current_score": 70,
+        "entered_by": "8b927080-46e5-5d85-a537-e615d2187201",
+        "custodian_id_at_entry": "8b927080-46e5-5d85-a537-e615d2187201",
+        "entered_at": "2026-10-21T12:00:00Z",
+        "adjustments": [
+          {
+            "old_score": 65,
+            "new_score": 70,
+            "reason": "Question 4 was marked twice by mistake",
+            "adjusted_by": "ad44afe2-4837-579b-b4e0-eac1231d118e",
+            "adjusted_at": "2026-10-22T09:00:00Z",
+            "id": "45535413-8b64-5bcf-b607-1dcefa95ce3a",
+            "mark_id": "becce37c-dca8-5100-92fa-dd2c02425fdb"
+          }
+        ]
+      },
+      {
+        "id": "7b94990c-9c3d-591c-98ba-3ad476afec62",
+        "batch_id": "7fc9a6e7-dc3c-5086-bef9-ba67911caab3",
+        "candidate_number": "CN2002",
+        "original_score": 55,
+        "current_score": 55,
+        "entered_by": "8b927080-46e5-5d85-a537-e615d2187201",
+        "custodian_id_at_entry": "8b927080-46e5-5d85-a537-e615d2187201",
+        "entered_at": "2026-10-21T12:00:00Z",
+        "adjustments": []
+      }
+    ]
+  },
+  {
+    "id": "a67a6e09-06a6-5499-bf00-73df8487d8e1",
+    "batch_id": "65424a60-800e-5b94-9846-0040f14e804c",
+    "status": "in_moderation",
+    "created_at": "2026-10-22T11:00:00Z",
+    "approval": null,
+    "marks": [
+      {
+        "id": "a1f161bb-d427-545b-9633-6e65c920bd83",
+        "batch_id": "65424a60-800e-5b94-9846-0040f14e804c",
+        "candidate_number": "CN3001",
+        "original_score": 38,
+        "current_score": 40,
+        "entered_by": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "custodian_id_at_entry": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "entered_at": "2026-10-22T11:00:00Z",
+        "adjustments": [
+          {
+            "old_score": 38,
+            "new_score": 40,
+            "reason": "Sum of the sections was wrong",
+            "adjusted_by": "ad44afe2-4837-579b-b4e0-eac1231d118e",
+            "adjusted_at": "2026-10-22T13:00:00Z",
+            "id": "bdbf4765-4e8c-5fcf-905f-5b3d91e8d82a",
+            "mark_id": "a1f161bb-d427-545b-9633-6e65c920bd83"
+          }
+        ]
+      },
+      {
+        "id": "57ecb667-3c7e-58b2-875e-6486a5aa6073",
+        "batch_id": "65424a60-800e-5b94-9846-0040f14e804c",
+        "candidate_number": "CN3002",
+        "original_score": 77,
+        "current_score": 77,
+        "entered_by": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "custodian_id_at_entry": "1cae8d57-c5ce-5ba5-b412-663cfcce025e",
+        "entered_at": "2026-10-22T11:00:00Z",
+        "adjustments": []
+      }
+    ]
+  }
+]
