@@ -35,14 +35,23 @@ class CreateBatchSchema(BaseModel):
     #                      -> list[Annotated[str, Field(pattern=CANDIDATE_PATTERN)]] with Field(min_length=..., max_length=...)
     # Then add a @field_validator("candidate_numbers") that raises ValueError when the list contains duplicates.
     # Docs: docs/04_script_service_guide.md, step M2.1
-    pass
+    course_code:str = Field(...,pattern=COURSE_PATTERN)
+    session_label:str = Field(...,min_length=1,max_length=60)
+    candidate_numbers: list[Annotated[str,Field(pattern=CANDIDATE_PATTERN)]] = Field(min_length=1,max_length=200)
 
-
+    @field_validator("candidate_numbers")
+    @classmethod
+    def no_duplicate(cls,value):
+        if len(value) != len(set(value)):
+            raise ValueError("Duplicate candidate numbers are not allowed.")
+        return value
+        
+    
 class CreateTransferSchema(BaseModel):
     """Body of POST /v1/batches/{batch_id}/transfers: components/schemas/CreateTransferSchema."""
 
     # TODO M3 (task F2): one field, to_user_id, of type UUID (the person who will receive the scripts).
-    pass
+    to_user_id: UUID = Field(...)
 
 
 # ------------------------------------------------------------------ responses (task K1)
