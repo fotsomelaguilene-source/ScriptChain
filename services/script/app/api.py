@@ -71,7 +71,6 @@ def ensure_valid_receiver(directory: UserDirectory, user_id: UUID) -> None:
         if user["role"] != RECEIVER_ROLE:
             raise Unprocessable("This user is unable to receive a transfer")
         
-        return user
     except DirectoryUnavailable:
         raise ServiceUnavailable("The service is un available")
     
@@ -147,11 +146,25 @@ def start_transfer(batch_id: UUID,
                    directory: Directory,
                    user: Handler):
     
+    # Ensure the receiver
+    ensure_valid_receiver(directory,payload.to_user_id)
     
-    raise NotImplementedError("TODO M3: start_transfer -- write the decorator, the parameters and the body")
+    # return the request transfer
+    return store.request_transfer(batch_id=batch_id,
+                                  to_user_id=payload.to_user_id,
+                                  by_user=user.id)
+    # raise NotImplementedError("TODO M3: start_transfer -- write the decorator, the parameters and the body")
 
 
 # TODO M3 (task F2): operation acceptTransfer -- POST /v1/transfers/{transfer_id}/accept, 200, response model TransferSchema.
 #   parameters: transfer_id: UUID, store: Store, user: Examiner. body: return store.accept_transfer(transfer_id, user.id)
-def accept_transfer():
-    raise NotImplementedError("TODO M3: accept_transfer -- write the decorator, the parameters and the body")
+@router.post('/v1/transfers/{transfer_id}/accept',
+             status_code=status.HTTP_200_OK,
+             response_model=TransferSchema)
+def accept_transfer(transfer_id: UUID, store: Store, user: Examiner):
+    
+    return store.accept_transfer(transfer_id=transfer_id,
+                                 by_user=user.id)
+    
+    
+    # raise NotImplementedError("TODO M3: accept_transfer -- write the decorator, the parameters and the body")
