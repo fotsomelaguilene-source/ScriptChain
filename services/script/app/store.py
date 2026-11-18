@@ -144,8 +144,8 @@ class ScriptStore:
         """
         # TODO M3 (task F2): follow the four rules above in that order, then build and append the transfer.
         # Check if the batch exist
-        batch = self._find_batch(batch_id=batch_id) | {}
-        if batch == {}:
+        batch = self._find_batch(batch_id=batch_id)
+        if batch is None:
             raise NotFound(message="The Batch is not found")
         
         # Check the current custodian
@@ -153,7 +153,7 @@ class ScriptStore:
             raise Conflict(message="The user is not the owner of the batch")
         
         # Check if the current custodian is the to custodian
-        if by_user == to_user_id:
+        if by_user == str(to_user_id):
             raise Unprocessable(message="You cannot be the receiver and the sender")
         
         # Create a list to hold pending transfers
@@ -190,16 +190,16 @@ class ScriptStore:
         """
         # TODO M3 (task F2): two nested for-loops to find the transfer and remember its batch; then the three rules.
         
-        # Get fisrt the transfer from a batch and remembe its batch
-        needed_transfer = {}
-        needed_batch = {} 
+        # Get fisrt the transfer from a batch and remember its batch
+        needed_transfer = None
+        needed_batch = None 
         for batch in self._batches:
             for transfer in batch["transfers"]:
-                if transfer["id"] == transfer_id:
+                if transfer["id"] == str(transfer_id):
                     needed_transfer = transfer
                     needed_batch = batch
         # Check the dict
-        if needed_transfer == {}:
+        if needed_transfer is None:
             raise NotFound(message="Transfer not found")
 
         # Get the batch
@@ -207,7 +207,7 @@ class ScriptStore:
     
         
         # Check the by_user if it matches the to_user_id of the transfer
-        if by_user != needed_transfer["to_user_id"]:
+        if by_user != str(needed_transfer["to_user_id"]):
             raise Conflict(message="This user is not supposed to have this transfer")
         
         # Check the transfer status if it is still pending
