@@ -104,7 +104,31 @@ class ScriptStore:
         """
         # TODO M2 (task F1): build the dict (see the docstring and data/seed.json), append it to
         # self._batches, return copy.deepcopy(it). Careful: str(self.new_id()) -- ids are stored as text.
-        raise NotImplementedError("TODO M2: create_batch -- build the batch with its scripts, append, return a copy")
+        # raise NotImplementedError("TODO M2: create_batch -- build the batch with its scripts, append, return a copy")
+        
+        id = str(self.new_id())
+        new_batch = {
+            "id": id,
+            "course_code": details["course_code"],
+            "session_label": details["session_label"],
+            "script_count": len(details["candidate_numbers"]),
+            "created_by": created_by,
+            "current_custodian_id": created_by,
+            "created_at": stamp(self.clock()),
+            "transfers": [],
+            "scripts": [
+                {
+                    "candidate_number":c,
+                    "id":str(self.new_id()),
+                    "batch_id":id
+                    } for c in details["candidate_numbers"]
+                ]
+        }
+        
+        self._batches.append(new_batch)
+        
+        return copy.deepcopy(new_batch)
+        
 
     # ------------------------------------------------------------------ M3: custody transfers (task F2)
     def request_transfer(self, batch_id: object, to_user_id: object, by_user: str) -> dict:
