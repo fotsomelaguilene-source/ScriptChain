@@ -103,8 +103,15 @@ def get_custodian():
 #   parameters: payload: CreateBatchSchema, store: Store, user: Officer   (only the exams officer creates batches)
 #   body: payload.model_dump(mode="json") turns the validated body into a plain dict;
 #         return store.create_batch(that_dict, created_by=user.id)
-def create_batch():
-    raise NotImplementedError("TODO M2: create_batch -- write the decorator, the parameters and the body")
+@router.post('/v1/batches',
+             status_code=status.HTTP_201_CREATED,
+             response_model=BatchSchema)
+def create_batch(payload:CreateBatchSchema,store:Store,user:Officer):
+    
+    body = payload.model_dump(mode="json")
+    
+    return store.create_batch(body,created_by=user.id)
+    # raise NotImplementedError("TODO M2: create_batch -- write the decorator, the parameters and the body")
 
 
 # ---------------------------------------------------------------------- M3: custody transfers

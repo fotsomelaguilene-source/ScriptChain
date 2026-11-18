@@ -51,7 +51,7 @@ class CreateTransferSchema(BaseModel):
     """Body of POST /v1/batches/{batch_id}/transfers: components/schemas/CreateTransferSchema."""
 
     # TODO M3 (task F2): one field, to_user_id, of type UUID (the person who will receive the scripts).
-    pass
+    to_user_id: UUID = Field(...)
 
 
 # ------------------------------------------------------------------ responses (task K1)
