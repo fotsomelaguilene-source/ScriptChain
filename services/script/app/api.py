@@ -55,7 +55,27 @@ Examiner = Annotated[User, Depends(require_roles("examiner"))]
 #   3. user["is_active"] false -> raise Unprocessable("...")
 #   4. user["role"] != RECEIVER_ROLE -> raise Unprocessable("...")
 def ensure_valid_receiver(directory: UserDirectory, user_id: UUID) -> None:
-    raise NotImplementedError("TODO M3: ensure_valid_receiver -- ask the directory; 503 / 422 as described")
+    # Get the receiver from the directory
+    try:
+        user = directory.get_user(str(user_id))
+        
+        # Check if user is None
+        if user is None:
+            raise Unprocessable("The user is not found")
+        
+        # Check if the user is active
+        if user["is_active"] == False:
+            raise Unprocessable("The current user is not active")
+        
+        # Check the user's role
+        if user["role"] != RECEIVER_ROLE:
+            raise Unprocessable("This user is unable to receive a transfer")
+        
+        return user
+    except DirectoryUnavailable:
+        raise ServiceUnavailable("The service is un available")
+    
+    # raise NotImplementedError("TODO M3: ensure_valid_receiver -- ask the directory; 503 / 422 as described")
 
 
 # ---------------------------------------------------------------------- M1: reads
@@ -118,7 +138,16 @@ def create_batch(payload:CreateBatchSchema,store:Store,user:Officer):
 # TODO M3 (task F2): operation startTransfer -- POST /v1/batches/{batch_id}/transfers, 201, response model TransferSchema.
 #   parameters: batch_id: UUID, payload: CreateTransferSchema, store: Store, directory: Directory, user: Handler
 #   body: 1) ensure_valid_receiver(directory, payload.to_user_id)   2) return store.request_transfer(batch_id, payload.to_user_id, user.id)
-def start_transfer():
+@router.post('/v1/batches/{batch_id}/transfers',
+             status_code=status.HTTP_201_CREATED,
+             response_model=TransferSchema)
+def start_transfer(batch_id: UUID,
+                   payload: CreateTransferSchema,
+                   store: Store,
+                   directory: Directory,
+                   user: Handler):
+    
+    
     raise NotImplementedError("TODO M3: start_transfer -- write the decorator, the parameters and the body")
 
 
