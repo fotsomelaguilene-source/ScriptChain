@@ -167,7 +167,7 @@ class ScriptStore:
             "id": str(self.new_id()),
             "batch_id": batch["id"],
             "from_user_id": by_user,
-            "to_user_id": to_user_id,
+            "to_user_id": str(to_user_id),
             "status": "pending",
             "requested_at": stamp(self.clock())
         }

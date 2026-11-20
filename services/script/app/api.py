@@ -139,7 +139,8 @@ def create_batch(payload:CreateBatchSchema,store:Store,user:Officer):
 #   body: 1) ensure_valid_receiver(directory, payload.to_user_id)   2) return store.request_transfer(batch_id, payload.to_user_id, user.id)
 @router.post('/v1/batches/{batch_id}/transfers',
              status_code=status.HTTP_201_CREATED,
-             response_model=TransferSchema)
+             response_model=TransferSchema,
+             response_model_exclude_none=True)
 def start_transfer(batch_id: UUID,
                    payload: CreateTransferSchema,
                    store: Store,
@@ -160,7 +161,8 @@ def start_transfer(batch_id: UUID,
 #   parameters: transfer_id: UUID, store: Store, user: Examiner. body: return store.accept_transfer(transfer_id, user.id)
 @router.post('/v1/transfers/{transfer_id}/accept',
              status_code=status.HTTP_200_OK,
-             response_model=TransferSchema)
+             response_model=TransferSchema,
+             response_model_exclude_none=True)
 def accept_transfer(transfer_id: UUID, store: Store, user: Examiner):
     
     return store.accept_transfer(transfer_id=transfer_id,

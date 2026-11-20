@@ -27,83 +27,101 @@ class BatchMarkStatus(StrEnum):
 class MarkEntrySchema(BaseModel):
     """One mark in a bulk submission: components/schemas/MarkEntrySchema."""
 
-    # TODO M2 (task F3): candidate_number (str matching CANDIDATE_PATTERN) and score (use the ready-made `Score` type above).
-    pass
+    candidate_number: str = Field(..., pattern=CANDIDATE_PATTERN)
+    score: Score
 
 
 class BulkMarksSchema(BaseModel):
     """Body of POST /v1/batches/{batch_id}/marks/bulk: components/schemas/BulkMarksSchema."""
 
-    # TODO M2 (task F3): entries, a list of MarkEntrySchema with 1 to 500 items; plus a @field_validator("entries")
-    # that raises ValueError when two entries have the same candidate_number.
-    pass
+    entries: list[MarkEntrySchema] = Field(..., min_length=1, max_length=500)
+
+    @field_validator("entries")
+    @classmethod
+    def no_same_candidate(cls, value):
+        # A candidate cannot appear two times in the same request
+        seen = []
+        for entry in value:
+            if entry.candidate_number in seen:
+                raise ValueError("A candidate can appear only once")
+            seen.append(entry.candidate_number)
+        return value
 
 
 class AdjustmentRequestSchema(BaseModel):
     """Body of POST /v1/marks/{mark_id}/adjustments: components/schemas/AdjustmentRequestSchema."""
 
-    # TODO M3 (task F4): new_score (the ready-made `Score` type) and reason (str, 1 to 500 characters AFTER removing
-    # the spaces around it: add  model_config = ConfigDict(str_strip_whitespace=True)  so that "   " becomes "" and
-    # fails min_length=1).
-    pass
+    model_config = ConfigDict(str_strip_whitespace=True)       # "   " becomes "" and then fails min_length=1
+
+    new_score: Score
+    reason: str = Field(..., min_length=1, max_length=500)
 
 
 # ------------------------------------------------------------------ responses (task K1)
+# The stored mark also has a list "adjustments", it is not declared here so it is not shown.
 class MarkSchema(BaseModel):
     """One mark: components/schemas/MarkSchema."""
 
-    # TODO M1 (task K1): in the order of the spec: id (UUID), batch_id (UUID), candidate_number (str),
-    # original_score (float), current_score (float), entered_by (UUID), custodian_id_at_entry (UUID),
-    # entered_at (datetime). The stored mark also holds a list "adjustments": the spec does NOT show it in a
-    # mark, so do not declare it.
-    model_config = ConfigDict(extra="allow")
+    id: UUID
+    batch_id: UUID
+    candidate_number: str
+    original_score: float
+    current_score: float
+    entered_by: UUID
+    custodian_id_at_entry: UUID
+    entered_at: datetime
 
 
 class MarksSchema(BaseModel):
     """Body of GET /v1/batches/{batch_id}/marks."""
 
-    # TODO M1 (task K1): marks, a list of MarkSchema.
-    model_config = ConfigDict(extra="allow")
+    marks: list[MarkSchema]
 
 
 class BulkResultSchema(BaseModel):
     """Answer of POST /v1/batches/{batch_id}/marks/bulk."""
 
-    # TODO M1 (task K1): batch_id (UUID), status (BatchMarkStatus), marks (a list of MarkSchema).
-    model_config = ConfigDict(extra="allow")
+    batch_id: UUID
+    status: BatchMarkStatus
+    marks: list[MarkSchema]
 
 
 class AdjustmentSchema(BaseModel):
     """One change of a mark by a moderator: components/schemas/AdjustmentSchema."""
 
-    # TODO M1 (task K1): id (UUID), mark_id (UUID), old_score (float), new_score (float), reason (str),
-    # adjusted_by (UUID), adjusted_at (datetime).
-    model_config = ConfigDict(extra="allow")
+    id: UUID
+    mark_id: UUID
+    old_score: float
+    new_score: float
+    reason: str
+    adjusted_by: UUID
+    adjusted_at: datetime
 
 
 class AdjustmentsSchema(BaseModel):
     """Body of GET /v1/marks/{mark_id}/adjustments."""
 
-    # TODO M1 (task K1): adjustments, a list of AdjustmentSchema.
-    model_config = ConfigDict(extra="allow")
+    adjustments: list[AdjustmentSchema]
 
 
 class PendingBatchSchema(BaseModel):
     """One line of the moderation queue: components/schemas/PendingBatchSchema."""
 
-    # TODO M1 (task K1): batch_id (UUID), status (BatchMarkStatus), mark_count (int).
-    model_config = ConfigDict(extra="allow")
+    batch_id: UUID
+    status: BatchMarkStatus
+    mark_count: int
 
 
 class PendingSchema(BaseModel):
     """Body of GET /v1/moderation/pending."""
 
-    # TODO M1 (task K1): batches, a list of PendingBatchSchema.
-    model_config = ConfigDict(extra="allow")
+    batches: list[PendingBatchSchema]
 
 
 class ApprovalSchema(BaseModel):
     """The approval of a batch by the head of department: components/schemas/ApprovalSchema."""
 
-    # TODO M1 (task K1): id (UUID), batch_id (UUID), approved_by (UUID), approved_at (datetime).
-    model_config = ConfigDict(extra="allow")
+    id: UUID
+    batch_id: UUID
+    approved_by: UUID
+    approved_at: datetime
