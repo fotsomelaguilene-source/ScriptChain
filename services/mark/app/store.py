@@ -73,31 +73,62 @@ class MarkStore:
     def list_marks(self, batch_id: object, *, limit: int = 10, offset: int = 0) -> list[dict]:
         """One page of the marks of a script batch, ordered by candidate_number (ascending). NotFound when
         no marks were submitted for that batch (self._find_batch raises it for you)."""
-        # TODO M1 (task K2): find the batch, sort its "marks" by candidate_number, slice [offset: offset + limit], deep copy.
-        raise NotImplementedError("TODO M1: list_marks -- find the batch, sort its marks by candidate_number, slice, copy")
+        # Find the batch first
+        batch = self._find_batch(batch_id=batch_id)
+
+        # Sort the marks by candidate number
+        sorted_marks = sorted(batch["marks"], key=lambda m: m["candidate_number"])
+
+        # Keep only the page we need
+        page = sorted_marks[offset: offset + limit]
+
+        return copy.deepcopy(page)
 
     def get_mark(self, mark_id: object) -> dict:
         """A copy of one mark; NotFound otherwise."""
-        # TODO M1 (task K2): self._find_mark returns TWO things: `batch, mark = self._find_mark(mark_id)`. Return a copy of the mark.
-        raise NotImplementedError("TODO M1: get_mark -- a copy of the mark self._find_mark returns")
+        batch, mark = self._find_mark(mark_id=mark_id)
+
+        return copy.deepcopy(mark)
 
     def list_adjustments(self, mark_id: object) -> list[dict]:
         """The change history of a mark, OLDEST FIRST (adjusted_at ascending), as copies."""
-        # TODO M1 (task K2): find the mark, sort mark["adjustments"] by adjusted_at, deep copy.
-        raise NotImplementedError("TODO M1: list_adjustments -- the adjustments of the mark, oldest first, copies")
+        batch, mark = self._find_mark(mark_id=mark_id)
+
+        # Oldest adjustment first
+        sorted_adjustments = sorted(mark["adjustments"], key=lambda a: a["adjusted_at"])
+
+        return copy.deepcopy(sorted_adjustments)
 
     def pending(self) -> list[dict]:
         """The moderation queue: every mark batch that is NOT approved yet, newest first (created_at descending),
         as small dicts  {"batch_id": ..., "status": ..., "mark_count": <number of marks>}."""
-        # TODO M1 (task K2): filter the batches whose status is not "approved", sort by created_at (newest first),
-        # build one small dict per batch. len(batch["marks"]) gives the mark_count.
-        raise NotImplementedError("TODO M1: pending -- the not-yet-approved batches as {batch_id, status, mark_count}, newest first")
+        # Keep only the batches that are not approved
+        not_approved = [b for b in self._batches if b["status"] != "approved"]
+
+        # Newest first
+        not_approved = sorted(not_approved, key=lambda b: b["created_at"], reverse=True)
+
+        # Build the small dicts
+        result = []
+        for batch in not_approved:
+            line = {
+                "batch_id": batch["batch_id"],
+                "status": batch["status"],
+                "mark_count": len(batch["marks"])
+            }
+            result.append(line)
+
+        return result
 
     def get_approval(self, batch_id: object) -> dict:
         """The approval record of a script batch (a copy). NotFound when the batch has no marks OR is not approved yet."""
-        # TODO M1 (task K2): find the batch (it may raise NotFound); if its "approval" is None raise
-        # NotFound(f"Batch {batch_id} is not approved"); otherwise return a copy of the approval.
-        raise NotImplementedError("TODO M1: get_approval -- the approval of the batch, NotFound when there is none")
+        batch = self._find_batch(batch_id=batch_id)
+
+        # No approval yet
+        if batch["approval"] is None:
+            raise NotFound(message=f"Batch {batch_id} is not approved")
+
+        return copy.deepcopy(batch["approval"])
 
     # ------------------------------------------------------------------ M2: bulk submission (task F3)
     def submit_marks(self, batch_id: object, entries: list[dict], by_user: str, custodian_id: str) -> dict:
@@ -114,9 +145,60 @@ class MarkStore:
         custodian_id_at_entry = custodian_id, entered_at = the timestamp below, adjustments [].
         TIMESTAMP: call self.clock() ONCE at the start (stamp(...)) and use it for created_at and every entered_at.
         """
-        # TODO M2 (task F3): follow the docstring. Useful: a set of the candidate numbers already entered
-        # ({m["candidate_number"] for m in batch["marks"]}), and `try: batch = self._find_batch(batch_id) except NotFound: batch = None`.
-        raise NotImplementedError("TODO M2: submit_marks -- locked? duplicates? create the mark batch and the marks")
+        # Read the clock only one time
+        now = stamp(self.clock())
+
+        # Try to get the mark batch, it may not exist yet
+        try:
+            batch = self._find_batch(batch_id=batch_id)
+        except NotFound:
+            batch = None
+
+        if batch is not None:
+            # Rule 1: an approved batch is locked
+            if batch["status"] == "approved":
+                raise Conflict(message="The marks of this batch are approved and locked")
+
+            # Rule 2: a candidate cannot have two marks (check everything before saving anything)
+            for entry in entries:
+                for mark in batch["marks"]:
+                    if mark["candidate_number"] == entry["candidate_number"]:
+                        raise Conflict(message=f"The candidate {entry['candidate_number']} already has a mark")
+
+        # Create the mark batch if it does not exist yet
+        if batch is None:
+            batch = {
+                "id": str(self.new_id()),
+                "batch_id": str(batch_id),
+                "status": "entered",
+                "created_at": now,
+                "approval": None,
+                "marks": []
+            }
+            self._batches.append(batch)
+
+        # Create one mark for each entry, in the order given
+        new_marks = []
+        for entry in entries:
+            mark = {
+                "id": str(self.new_id()),
+                "batch_id": batch["batch_id"],
+                "candidate_number": entry["candidate_number"],
+                "original_score": entry["score"],
+                "current_score": entry["score"],
+                "entered_by": by_user,
+                "custodian_id_at_entry": custodian_id,
+                "entered_at": now,
+                "adjustments": []
+            }
+            batch["marks"].append(mark)
+            new_marks.append(mark)
+
+        return {
+            "batch_id": batch["batch_id"],
+            "status": batch["status"],
+            "marks": copy.deepcopy(new_marks)
+        }
 
     # ------------------------------------------------------------------ M3: moderation and approval (task F4)
     def add_adjustment(self, mark_id: object, new_score: float, reason: str, by_user: str) -> dict:
@@ -130,8 +212,33 @@ class MarkStore:
         current_score to new_score (original_score never changes), and if the batch status was "entered" make it
         "in_moderation".
         """
-        # TODO M3 (task F4): `batch, mark = self._find_mark(mark_id)`, then the rule, then the changes.
-        raise NotImplementedError("TODO M3: add_adjustment -- locked? record the adjustment, move current_score, update the status")
+        # Find the mark and its batch (NotFound if the mark does not exist)
+        batch, mark = self._find_mark(mark_id=mark_id)
+
+        # An approved batch is locked
+        if batch["status"] == "approved":
+            raise Conflict(message="The marks of this batch are approved and locked")
+
+        # Create the adjustment, old_score is the CURRENT score of the mark
+        adjustment = {
+            "id": str(self.new_id()),
+            "mark_id": mark["id"],
+            "old_score": mark["current_score"],
+            "new_score": new_score,
+            "reason": reason,
+            "adjusted_by": by_user,
+            "adjusted_at": stamp(self.clock())
+        }
+        mark["adjustments"].append(adjustment)
+
+        # Change the current score (the original score never changes)
+        mark["current_score"] = new_score
+
+        # The first adjustment moves the batch to in_moderation
+        if batch["status"] == "entered":
+            batch["status"] = "in_moderation"
+
+        return copy.deepcopy(adjustment)
 
     def approve(self, batch_id: object, by_user: str) -> dict:
         """The head of department approves a batch: its marks are locked for ever. Returns a copy of the approval.
@@ -140,5 +247,23 @@ class MarkStore:
         already (Conflict). Then set status "approved" and approval = {"id": self.new_id(), "batch_id", "approved_by":
         by_user, "approved_at": stamp(self.clock())}.
         """
-        # TODO M3 (task F4): find the batch, check it is not already approved, then set the status and the approval.
-        raise NotImplementedError("TODO M3: approve -- not already approved? set status 'approved' and the approval record")
+        # Find the batch (NotFound if it has no marks)
+        batch = self._find_batch(batch_id=batch_id)
+
+        # It cannot be approved two times
+        if batch["status"] == "approved":
+            raise Conflict(message="This batch is already approved")
+
+        # Create the approval record
+        approval = {
+            "id": str(self.new_id()),
+            "batch_id": batch["batch_id"],
+            "approved_by": by_user,
+            "approved_at": stamp(self.clock())
+        }
+
+        # Save it and lock the batch
+        batch["status"] = "approved"
+        batch["approval"] = approval
+
+        return copy.deepcopy(approval)

@@ -57,9 +57,34 @@ class HttpCustodianClient:
         * 5xx, or a timeout / connection problem (httpx.TransportError) -> try again;
           after 1 + self.retries attempts in total, raise ScriptServiceUnavailable
         """
-        # TODO M5 (task K5): loop `for attempt in range(self.retries + 1):`
-        #   inside: try: response = self._client.get(f"/v1/batches/{batch_id}/custodian", headers={...})
-        #           except httpx.TransportError: remember the failure and `continue`
-        #   then look at response.status_code as the docstring says (200 / 404 / >= 500 -> continue / other -> raise).
-        #   after the loop: raise ScriptServiceUnavailable(...)
-        raise NotImplementedError("TODO M5: HttpCustodianClient.get_custodian -- call the Script service with retries")
+        url = f"/v1/batches/{batch_id}/custodian"
+        headers = {"Authorization": f"Bearer {token}"}
+        last_error = "no attempt"
+
+        # First attempt + the retries
+        for attempt in range(self.retries + 1):
+            try:
+                response = self._client.get(url, headers=headers)
+            except httpx.TransportError:
+                # timeout or connection problem: try again
+                last_error = "timeout or connection problem"
+                continue
+
+            # Everything is fine: give the custodian id
+            if response.status_code == 200:
+                return response.json()["custodian_id"]
+
+            # The batch does not exist: no retry
+            if response.status_code == 404:
+                raise BatchNotFound(batch_id)
+
+            # Server error: try again
+            if response.status_code >= 500:
+                last_error = f"the Script service answered {response.status_code}"
+                continue
+
+            # Other 4xx (401, 403 ...): asking again will not help, and we cannot accept unverified marks
+            raise ScriptServiceUnavailable(f"The Script service refused the request ({response.status_code})")
+
+        # All the attempts failed: fail closed
+        raise ScriptServiceUnavailable(f"The Script service is not available ({last_error})")

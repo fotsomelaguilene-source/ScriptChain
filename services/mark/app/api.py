@@ -52,64 +52,107 @@ def fingerprint(batch_id: UUID, user_id: str, body: dict) -> str:
 
 
 # ---------------------------------------------------------------------- M1: reads
-# TODO M1 (task K3): operation getMarks -- GET /v1/batches/{batch_id}/marks, 200, response model MarksSchema.
-#   parameters: batch_id: UUID, store: Store, user: AnyUser, limit (1-100, default 10), offset (>= 0, default 0)
-#   body: return {"marks": store.list_marks(batch_id, limit=limit, offset=offset)}
-def get_marks():
-    raise NotImplementedError("TODO M1: get_marks -- write the decorator, the parameters and the body")
+@router.get("/v1/batches/{batch_id}/marks",
+            status_code=status.HTTP_200_OK,
+            response_model=MarksSchema)
+def get_marks(batch_id: UUID,
+              store: Store,
+              user: AnyUser,
+              limit: Annotated[int, Query(ge=1, le=100)] = 10,
+              offset: Annotated[int, Query(ge=0)] = 0):
+
+    return {"marks": store.list_marks(batch_id, limit=limit, offset=offset)}
 
 
-# TODO M1 (task K3): operation getMark -- GET /v1/marks/{mark_id}, 200, response model MarkSchema.
-#   The decorator and the parameters are the same kind as above; body: return store.get_mark(mark_id)
-def get_mark():
-    raise NotImplementedError("TODO M1: get_mark -- write the decorator, the parameters and the body")
+@router.get("/v1/marks/{mark_id}",
+            status_code=status.HTTP_200_OK,
+            response_model=MarkSchema)
+def get_mark(mark_id: UUID, store: Store, user: AnyUser):
+
+    return store.get_mark(mark_id)
 
 
-# TODO M1 (task K3): operation getAdjustments -- GET /v1/marks/{mark_id}/adjustments, 200, response model AdjustmentsSchema.
-#   body: return {"adjustments": store.list_adjustments(mark_id)}
-def get_adjustments():
-    raise NotImplementedError("TODO M1: get_adjustments -- write the decorator, the parameters and the body")
+@router.get("/v1/marks/{mark_id}/adjustments",
+            status_code=status.HTTP_200_OK,
+            response_model=AdjustmentsSchema)
+def get_adjustments(mark_id: UUID, store: Store, user: AnyUser):
+
+    return {"adjustments": store.list_adjustments(mark_id)}
 
 
-# TODO M1 (task K3): operation getPending -- GET /v1/moderation/pending, 200, response model PendingSchema.
-#   caller: ModeratorOrHod (ready-made alias above: only moderator and hod). body: return {"batches": store.pending()}
-def get_pending():
-    raise NotImplementedError("TODO M1: get_pending -- write the decorator, the parameters and the body")
+@router.get("/v1/moderation/pending",
+            status_code=status.HTTP_200_OK,
+            response_model=PendingSchema)
+def get_pending(store: Store, user: ModeratorOrHod):
+
+    return {"batches": store.pending()}
 
 
-# TODO M1 (task K3): operation getApproval -- GET /v1/batches/{batch_id}/approval, 200, response model ApprovalSchema.
-#   body: return store.get_approval(batch_id)
-def get_approval():
-    raise NotImplementedError("TODO M1: get_approval -- write the decorator, the parameters and the body")
+@router.get("/v1/batches/{batch_id}/approval",
+            status_code=status.HTTP_200_OK,
+            response_model=ApprovalSchema)
+def get_approval(batch_id: UUID, store: Store, user: AnyUser):
+
+    return store.get_approval(batch_id)
 
 
 # ---------------------------------------------------------------------- M2: bulk submission
-# TODO M2 (task F3): operation submitMarks -- POST /v1/batches/{batch_id}/marks/bulk, success 201, response model BulkResultSchema.
-#   parameters: batch_id: UUID, payload: BulkMarksSchema, store: Store, custodians: Custodians, user: Examiner,
-#               idempotency_key: IdempotencyKey            (all without default, so no problem with the order)
-#   body, in THIS order:
-#     1. body = payload.model_dump(mode="json");  digest = fingerprint(batch_id, user.id, body)
-#     2. previous = store.find_idempotent(idempotency_key)
-#          - if previous exists and previous["fingerprint"] != digest -> raise Unprocessable(...)  (key reused for another request)
-#          - if previous exists and it is the same request            -> return previous["response"]  (a retry: same answer, nothing saved twice)
-#     3. ask the custodian: try: custodian_id = custodians.get_custodian(str(batch_id), user.token)
-#          except BatchNotFound -> raise NotFound(...)            except ScriptServiceUnavailable -> raise ServiceUnavailable(...)  (fail closed)
-#     4. if custodian_id != user.id -> raise Conflict("Only the current custodian ...")
-#     5. result = store.submit_marks(str(batch_id), body["entries"], user.id, custodian_id)
-#     6. store.remember(idempotency_key, digest, result);  return result
-def submit_marks():
-    raise NotImplementedError("TODO M2: submit_marks -- write the decorator, the parameters and the body")
+@router.post("/v1/batches/{batch_id}/marks/bulk",
+             status_code=status.HTTP_201_CREATED,
+             response_model=BulkResultSchema)
+def submit_marks(batch_id: UUID,
+                 payload: BulkMarksSchema,
+                 store: Store,
+                 custodians: Custodians,
+                 user: Examiner,
+                 idempotency_key: IdempotencyKey):
+
+    # 1. Fingerprint of the request
+    body = payload.model_dump(mode="json")
+    digest = fingerprint(batch_id, user.id, body)
+
+    # 2. Look for the Idempotency-Key (before the custodian check, so a retry works even if Script is down)
+    previous = store.find_idempotent(idempotency_key)
+    if previous is not None:
+        # Same key but another request
+        if previous["fingerprint"] != digest:
+            raise Unprocessable(message="This Idempotency-Key was already used for another request")
+        # Same key and same request: give the first answer again
+        return previous["response"]
+
+    # 3. Ask the Script service who is the custodian
+    try:
+        custodian_id = custodians.get_custodian(str(batch_id), user.token)
+    except BatchNotFound:
+        raise NotFound(message="The Script service does not know this batch")
+    except ScriptServiceUnavailable:
+        raise ServiceUnavailable(message="The Script service is not available, the marks are not saved")
+
+    # 4. Only the custodian can submit the marks
+    if custodian_id != user.id:
+        raise Conflict(message="Only the current custodian of the batch can submit its marks")
+
+    # 5. Save the marks
+    result = store.submit_marks(str(batch_id), body["entries"], user.id, custodian_id)
+
+    # 6. Remember the answer for a retry
+    store.remember(idempotency_key, digest, result)
+
+    return result
 
 
 # ---------------------------------------------------------------------- M3: moderation and approval
-# TODO M3 (task F4): operation adjustMark -- POST /v1/marks/{mark_id}/adjustments, success 201, response model AdjustmentSchema.
-#   parameters: mark_id: UUID, payload: AdjustmentRequestSchema, store: Store, user: Moderator
-#   body: return store.add_adjustment(mark_id, payload.new_score, payload.reason, user.id)
-def adjust_mark():
-    raise NotImplementedError("TODO M3: adjust_mark -- write the decorator, the parameters and the body")
+@router.post("/v1/marks/{mark_id}/adjustments",
+             status_code=status.HTTP_201_CREATED,
+             response_model=AdjustmentSchema)
+def adjust_mark(mark_id: UUID, payload: AdjustmentRequestSchema, store: Store, user: Moderator):
+
+    return store.add_adjustment(mark_id, payload.new_score, payload.reason, user.id)
 
 
-# TODO M3 (task F4): operation approveBatch -- POST /v1/batches/{batch_id}/approval, success 201, response model ApprovalSchema.
-#   parameters: batch_id: UUID, store: Store, user: Hod.   body: return store.approve(batch_id, user.id)
-def approve_batch():
-    raise NotImplementedError("TODO M3: approve_batch -- write the decorator, the parameters and the body")
+@router.post("/v1/batches/{batch_id}/approval",
+             status_code=status.HTTP_201_CREATED,
+             response_model=ApprovalSchema)
+def approve_batch(batch_id: UUID, store: Store, user: Hod):
+
+    return store.approve(batch_id, user.id)

@@ -47,37 +47,42 @@ def test_a_200_answer_gives_the_custodian_id_and_forwards_the_token():
 
 
 def test_a_404_means_the_batch_is_unknown_and_is_not_retried():
-    # TODO K5: network = FakeNetwork(httpx.Response(404, json={"detail": "not found"}))
-    #          with pytest.raises(BatchNotFound): network.client().get_custodian(BATCH_NEW, "t")
-    #          assert len(network.requests) == 1        (one attempt only: asking again would not help)
-    pytest.fail("TODO K5: a 404 raises BatchNotFound after exactly one attempt", pytrace=False)
+    network = FakeNetwork(httpx.Response(404, json={"detail": "not found"}))
+    with pytest.raises(BatchNotFound):
+        network.client().get_custodian(BATCH_NEW, "t")
+    assert len(network.requests) == 1                    # one attempt only: asking again would not help
 
 
 def test_a_timeout_is_retried_then_fails_closed():
-    # TODO K5: network = FakeNetwork(httpx.ReadTimeout("too slow"))        (the same failure forever)
-    #          with pytest.raises(ScriptServiceUnavailable): network.client(retries=2).get_custodian(BATCH_NEW, "t")
-    #          assert len(network.requests) == 3        (1 first attempt + 2 retries)
-    pytest.fail("TODO K5: a timeout is tried 1 + retries times, then ScriptServiceUnavailable", pytrace=False)
+    network = FakeNetwork(httpx.ReadTimeout("too slow"))                 # the same failure forever
+    with pytest.raises(ScriptServiceUnavailable):
+        network.client(retries=2).get_custodian(BATCH_NEW, "t")
+    assert len(network.requests) == 3                    # 1 first attempt + 2 retries
 
 
 def test_a_connection_error_is_retried_then_fails_closed():
-    # TODO K5: same as the timeout test, but the network raises httpx.ConnectError("refused") and retries=1 -> 2 attempts.
-    pytest.fail("TODO K5: a connection error is tried 1 + retries times, then ScriptServiceUnavailable", pytrace=False)
+    network = FakeNetwork(httpx.ConnectError("refused"))
+    with pytest.raises(ScriptServiceUnavailable):
+        network.client(retries=1).get_custodian(BATCH_NEW, "t")
+    assert len(network.requests) == 2                    # 1 first attempt + 1 retry
 
 
 def test_a_server_error_then_a_good_answer_succeeds_on_the_retry():
-    # TODO K5: network = FakeNetwork(httpx.Response(503), OK)   (first call 503, second call 200)
-    #          the client (retries=2) must return EXAMINER_1_ID and have made exactly 2 attempts.
-    pytest.fail("TODO K5: 503 then 200 -> the custodian id, after exactly 2 attempts", pytrace=False)
+    network = FakeNetwork(httpx.Response(503), OK)       # first call 503, second call 200
+    assert network.client(retries=2).get_custodian(BATCH_NEW, "t") == EXAMINER_1_ID
+    assert len(network.requests) == 2                    # it stopped as soon as it had a good answer
 
 
 def test_a_server_that_keeps_failing_fails_closed_after_all_the_attempts():
-    # TODO K5: network = FakeNetwork(httpx.Response(500)) forever; retries=2 -> ScriptServiceUnavailable, 3 attempts.
-    pytest.fail("TODO K5: persistent 500 -> ScriptServiceUnavailable after 1 + retries attempts", pytrace=False)
+    network = FakeNetwork(httpx.Response(500))           # 500 forever
+    with pytest.raises(ScriptServiceUnavailable):
+        network.client(retries=2).get_custodian(BATCH_NEW, "t")
+    assert len(network.requests) == 3
 
 
 @pytest.mark.parametrize("code", [401, 403])
 def test_a_refusal_is_not_retried_and_is_treated_as_unavailable(code):
-    # TODO K5: network = FakeNetwork(httpx.Response(code)); expect ScriptServiceUnavailable and ONE attempt
-    # (retrying a refusal is pointless, and we still must not accept unverified marks).
-    pytest.fail("TODO K5: 401/403 -> ScriptServiceUnavailable after exactly one attempt", pytrace=False)
+    network = FakeNetwork(httpx.Response(code))
+    with pytest.raises(ScriptServiceUnavailable):        # not BatchNotFound: the batch may well exist
+        network.client(retries=2).get_custodian(BATCH_NEW, "t")
+    assert len(network.requests) == 1                    # retrying a refusal is pointless
